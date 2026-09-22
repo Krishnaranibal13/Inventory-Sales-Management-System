@@ -105,8 +105,7 @@ function Products({ appSettings, onLowStockCountChange }: ProductsProps) {
     try {
 
       const response = await fetch(
-        "https://inventory-sales-management-system-production-a7df.up.railway.app
-/api/products"
+        "https://inventory-sales-management-system-production-a7df.up.railway.app/api/products"
       );
 
       if (!response.ok) {
@@ -449,8 +448,7 @@ function Products({ appSettings, onLowStockCountChange }: ProductsProps) {
 
       const response =
         await fetch(
-          "https://inventory-sales-management-system-production-a7df.up.railway.app
-/api/products",
+          "https://inventory-sales-management-system-production-a7df.up.railway.app/api/products",
           {
             method: "POST",
 
@@ -619,8 +617,7 @@ function Products({ appSettings, onLowStockCountChange }: ProductsProps) {
 
         const response =
           await fetch(
-            `https://inventory-sales-management-system-production-a7df.up.railway.app
-/api/products/${editingProduct.product_id}`,
+            `https://inventory-sales-management-system-production-a7df.up.railway.app/api/products/${editingProduct.product_id}`,
             {
               method: "PUT",
 
@@ -730,8 +727,7 @@ function Products({ appSettings, onLowStockCountChange }: ProductsProps) {
 
         const response =
           await fetch(
-            `https://inventory-sales-management-system-production-a7df.up.railway.app
-/api/products/${product.product_id}`,
+            `https://inventory-sales-management-system-production-a7df.up.railway.app/api/products/${product.product_id}`,
             {
               method: "DELETE",
             }
