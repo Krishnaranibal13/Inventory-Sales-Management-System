@@ -28,7 +28,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1):\d+$",
+    allow_origins=[
+        "https://resourceful-radiance-production-0f74.up.railway.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
