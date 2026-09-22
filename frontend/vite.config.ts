@@ -7,4 +7,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+
+  preview: {
+    allowedHosts: [
+      "resourceful-radiance-production-0f74.up.railway.app",
+    ],
+  },
 })
