@@ -7,7 +7,8 @@ export type AuthUser = {
   created_at?: string;
 };
 
-export const API_BASE_URL = "http://127.0.0.1:8000";
+export const API_BASE_URL = "https://inventory-sales-management-system-production-a7df.up.railway.app
+";
 const TOKEN_KEY = "inventory-pro-auth-token";
 const REMEMBER_KEY = "inventory-pro-remember";
 

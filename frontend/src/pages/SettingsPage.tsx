@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 
 type SettingsState = AppSettings;
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "https://inventory-sales-management-system-production-a7df.up.railway.app
+";
 
 function Settings() {
   const [settings, setSettings] = useState<SettingsState>(loadSettings);

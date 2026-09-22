@@ -128,7 +128,8 @@ function App() {
       }
 
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/products");
+        const response = await fetch("https://inventory-sales-management-system-production-a7df.up.railway.app
+/api/products");
         const data = await response.json();
         const products = data.products || [];
         const count = products.filter(

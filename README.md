@@ -621,13 +621,15 @@ python -m uvicorn src.api:app --reload
 Backend:
 
 ```text
-http://127.0.0.1:8000
+https://inventory-sales-management-system-production-a7df.up.railway.app
+
 ```
 
 FastAPI Swagger documentation:
 
 ```text
-http://127.0.0.1:8000/docs
+https://inventory-sales-management-system-production-a7df.up.railway.app
+/docs
 ```
 
 ---

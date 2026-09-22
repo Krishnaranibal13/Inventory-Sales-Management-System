@@ -42,7 +42,8 @@ type SuppliersProps = {
   onGlobalSearchChange?: (value: string) => void;
 };
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "https://inventory-sales-management-system-production-a7df.up.railway.app
+";
 
 function Suppliers({
   globalSearch = "",

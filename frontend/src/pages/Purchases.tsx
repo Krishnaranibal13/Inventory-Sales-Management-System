@@ -64,7 +64,8 @@ type PurchasesProps = {
   appSettings: AppSettings;
 };
 
-const API = "http://127.0.0.1:8000/api";
+const API = "https://inventory-sales-management-system-production-a7df.up.railway.app
+/api";
 
 function Purchases({
   globalSearch = "",

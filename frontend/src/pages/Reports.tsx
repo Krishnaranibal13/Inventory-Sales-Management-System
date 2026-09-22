@@ -61,7 +61,8 @@ type ReportsProps = {
   appSettings: AppSettings;
 };
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "https://inventory-sales-management-system-production-a7df.up.railway.app
+";
 
 function Reports({ globalSearch = "", appSettings }: ReportsProps) {
   const [products, setProducts] = useState<Product[]>([]);
