@@ -1,0 +1,120 @@
+# Add these imports to your existing api.py
+from fastapi import Header, HTTPException, status
+from pydantic import BaseModel, EmailStr
+from backend.auth import (
+    create_access_token,
+    decode_access_token,
+    get_user_by_email,
+    get_user_by_id,
+    hash_password,
+    normalize_email,
+    public_user,
+    validate_email,
+    verify_password,
+)
+
+# Request models
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+    remember: bool = True
+
+class ProfileUpdateRequest(BaseModel):
+    name: str
+    email: str
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+def current_user_from_token(authorization: str | None):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated.")
+    payload = decode_access_token(authorization[7:].strip())
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid session.")
+    user = get_user_by_id(int(user_id))
+    if not user or not user["is_active"]:
+        raise HTTPException(status_code=401, detail="Account is inactive or unavailable.")
+    return user
+
+@app.post("/api/auth/register")
+def register(data: RegisterRequest):
+    name = data.name.strip()
+    email = normalize_email(data.email)
+    if len(name) < 2:
+        return {"success": False, "message": "Name must contain at least 2 characters."}
+    if not validate_email(email):
+        return {"success": False, "message": "Enter a valid email address."}
+    if len(data.password) < 8:
+        return {"success": False, "message": "Password must be at least 8 characters."}
+    if get_user_by_email(email):
+        return {"success": False, "message": "An account with this email already exists."}
+
+    db = Database()
+    user_id = db.execute(
+        "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)",
+        (name, email, hash_password(data.password)),
+    )
+    if user_id is None:
+        return {"success": False, "message": "Unable to create account."}
+    user = get_user_by_id(int(user_id))
+    token = create_access_token(int(user_id), email)
+    return {"success": True, "access_token": token, "token_type": "bearer", "user": public_user(user)}
+
+@app.post("/api/auth/login")
+def login(data: LoginRequest):
+    email = normalize_email(data.email)
+    user = get_user_by_email(email)
+    if not user or not verify_password(data.password, user["password_hash"]):
+        return {"success": False, "message": "Incorrect email or password."}
+    if not user["is_active"]:
+        return {"success": False, "message": "This account is inactive."}
+    token = create_access_token(user["user_id"], user["email"])
+    return {"success": True, "access_token": token, "token_type": "bearer", "user": public_user(user)}
+
+@app.get("/api/auth/me")
+def me(authorization: str | None = Header(default=None)):
+    return {"success": True, "user": public_user(current_user_from_token(authorization))}
+
+@app.put("/api/auth/profile")
+def update_profile(data: ProfileUpdateRequest, authorization: str | None = Header(default=None)):
+    user = current_user_from_token(authorization)
+    name = data.name.strip()
+    email = normalize_email(data.email)
+    if len(name) < 2 or not validate_email(email):
+        return {"success": False, "message": "Enter a valid name and email."}
+    existing = get_user_by_email(email)
+    if existing and existing["user_id"] != user["user_id"]:
+        return {"success": False, "message": "That email is already in use."}
+    db = Database()
+    result = db.execute("UPDATE users SET name = %s, email = %s WHERE user_id = %s", (name, email, user["user_id"]))
+    if result is None:
+        return {"success": False, "message": "Unable to update profile."}
+    updated = get_user_by_id(user["user_id"])
+    return {"success": True, "user": public_user(updated)}
+
+@app.post("/api/auth/change-password")
+def change_password(data: PasswordChangeRequest, authorization: str | None = Header(default=None)):
+    user = current_user_from_token(authorization)
+    if not verify_password(data.current_password, user["password_hash"]):
+        return {"success": False, "message": "Current password is incorrect."}
+    if len(data.new_password) < 8:
+        return {"success": False, "message": "New password must be at least 8 characters."}
+    db = Database()
+    result = db.execute("UPDATE users SET password_hash = %s WHERE user_id = %s", (hash_password(data.new_password), user["user_id"]))
+    if result is None:
+        return {"success": False, "message": "Unable to change password."}
+    return {"success": True, "message": "Password changed successfully."}
+
+@app.post("/api/auth/logout")
+def logout():
+    # JWT access tokens are stateless. The frontend removes its token on sign-out.
+    return {"success": True, "message": "Signed out successfully."}

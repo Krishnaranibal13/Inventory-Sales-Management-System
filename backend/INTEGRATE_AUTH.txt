@@ -1,0 +1,70 @@
+BATCH 2 AUTHENTICATION - INTEGRATION
+
+1) Database
+Run sql/auth_migration.sql in MySQL Workbench against inventory_db.
+
+2) Python packages
+Inside your existing venv:
+python -m pip install PyJWT "pwdlib[argon2]"
+
+3) Backend auth module
+Copy backend/src/auth.py to:
+E:\Projects\Inventory-Sales-Management-System\src\auth.py
+
+4) Existing API file
+Open your CURRENT api.py (the one you already use to start FastAPI).
+Do NOT replace the whole API with an older API file from this ZIP, because your current file may contain newer Sales/Reports endpoints.
+
+Add the import/model/route code from backend/auth_routes.txt to that existing api.py.
+
+Change this import line in auth_routes.txt if needed:
+from backend.auth import ...
+TO:
+from src.auth import ...
+
+The route code uses the existing Database class and the new users table.
+
+5) CORS
+Your existing CORSMiddleware currently allows localhost:5177. Since Vite can move between ports, replace allow_origins with:
+allow_origins=[
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:5176",
+    "http://localhost:5177",
+    "http://localhost:5178",
+    "http://localhost:5179",
+]
+
+6) JWT secret
+Add a strong secret to your existing .env:
+JWT_SECRET_KEY=<generate-a-random-64-character-secret>
+JWT_EXPIRE_MINUTES=60
+
+Generate one with:
+python -c "import secrets; print(secrets.token_hex(32))"
+
+Do not commit .env to Git.
+
+7) Frontend
+Replace:
+frontend/src/App.tsx
+with the App.tsx from this ZIP.
+
+Add:
+frontend/src/auth.ts
+frontend/src/pages/Login.tsx
+frontend/src/pages/Register.tsx
+
+Replace:
+frontend/src/pages/Profile.tsx
+
+8) Flow after setup
+No token -> Login page
+Create Account -> Register -> automatic login -> Dashboard
+Login -> Dashboard
+K icon -> Profile
+Profile -> Edit Profile / Change Password / Sign Out
+Sign Out -> token removed -> Login page
+
+Note: existing inventory endpoints remain as they are. This batch adds authentication/session handling and profile APIs without redesigning the inventory API.
