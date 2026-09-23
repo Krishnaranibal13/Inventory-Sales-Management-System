@@ -10,6 +10,11 @@ import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
 import { clearToken, getCurrentUser, getToken, type AuthUser } from "./auth";
 import {
+  fetchDashboardData,
+  type DashboardData,
+} from "./services/dashboard";
+
+import {
   formatCurrency,
   loadSettings,
   type AppNotification,
@@ -40,17 +45,68 @@ function resolveTheme(theme: AppSettings["theme"]): "dark" | "light" {
 
 function App() {
 
+  const [dashboardData, setDashboardData] = useState<DashboardData>({
+    products: [],
+    sales: [],
+    purchases: [],
+    suppliers: [],
+  });
+
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
+
   const [activePage, setActivePage] = useState("dashboard");
   const [globalSearch, setGlobalSearch] = useState("");
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings>(loadSettings);
+
+  const totalProducts = dashboardData.products.length;
+
+  const currentStock = dashboardData.products.reduce(
+    (total, product) => total + Number(product.quantity || 0),
+    0
+  );
+
+  const totalSales = dashboardData.sales.reduce(
+    (total, sale) => total + Number(sale.total_amount || 0),
+    0
+  );
+
+  const totalSuppliers = dashboardData.suppliers.length;
+
+  const lowStockProducts = dashboardData.products.filter(
+    (product) =>
+      Number(product.quantity) <= appSettings.lowStockThreshold
+  );
+
   const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">(() => resolveTheme(loadSettings().theme));
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [salesPeriod, setSalesPeriod] = useState<"week" | "month" | "year">("month");
+
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        setDashboardLoading(true);
+        setDashboardError("");
+
+        const data = await fetchDashboardData();
+        setDashboardData(data);
+      } catch (error) {
+        console.error("Dashboard loading failed:", error);
+        setDashboardError("Unable to load dashboard data.");
+      } finally {
+        setDashboardLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, []);
+
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -629,6 +685,23 @@ function App() {
 
           </section>
 
+        ) : dashboardError ? (
+
+          <section className="flex min-h-[calc(100vh-80px)] items-center justify-center p-8">
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-red-200 shadow-xl shadow-black/20">
+              {dashboardError}
+            </div>
+          </section>
+
+        ) : dashboardLoading ? (
+
+          <section className="flex min-h-[calc(100vh-80px)] items-center justify-center p-8">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-5 py-4 text-slate-300 shadow-xl shadow-black/20">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+              Loading dashboard...
+            </div>
+          </section>
+
         ) : (
 
           /* DASHBOARD PAGE */
@@ -653,21 +726,30 @@ function App() {
 
             {/* ================= STATS ================= */}
 
-            <div className="grid grid-cols-4 gap-5">
+            <div className="grid grid-cols-5 gap-5">
 
 
               <StatCard
                 title="Total Products"
-                value="2"
-                subtitle="Active products"
+                value={String(totalProducts)}
+                subtitle={totalProducts === 1 ? "Active product" : "Active products"}
                 icon={<Package size={22} />}
                 iconStyle="from-violet-500/20 to-purple-500/5 text-violet-400"
               />
 
 
               <StatCard
+                title="Suppliers"
+                value={String(totalSuppliers)}
+                subtitle={totalSuppliers === 1 ? "Active supplier" : "Active suppliers"}
+                icon={<Truck size={22} />}
+                iconStyle="from-amber-500/20 to-yellow-500/5 text-amber-400"
+              />
+
+
+              <StatCard
                 title="Current Stock"
-                value="38"
+                value={String(currentStock)}
                 subtitle="Units available"
                 icon={<Boxes size={22} />}
                 iconStyle="from-blue-500/20 to-cyan-500/5 text-blue-400"
@@ -676,18 +758,18 @@ function App() {
 
               <StatCard
                 title="Total Sales"
-                value={formatCurrency(1598, appSettings.currency)}
-                subtitle="Today's revenue"
+                value={formatCurrency(totalSales, appSettings.currency)}
+                subtitle="Total revenue"
                 icon={<Receipt size={22} />}
                 iconStyle="from-emerald-500/20 to-green-500/5 text-emerald-400"
-                trend="+100%"
+                trend={totalSales > 0 ? "Live" : undefined}
                 positive
               />
 
 
               <StatCard
                 title="Low Stock"
-                value={String(lowStockCount)}
+                value={String(lowStockProducts.length)}
                 subtitle={`Products at or below ${appSettings.lowStockThreshold} units`}
                 icon={<AlertTriangle size={22} />}
                 iconStyle="from-orange-500/20 to-red-500/5 text-orange-400"
@@ -736,46 +818,140 @@ function App() {
 
                 {/* Chart */}
 
-                <div className="mt-8 flex h-56 items-end gap-5">
+                {(() => {
+                  const now = new Date();
 
-                  {(salesPeriod === "week"
-                    ? [42, 58, 35, 72, 64, 88, 76]
-                    : salesPeriod === "year"
-                      ? [48, 62, 55, 74, 68, 82, 78, 91, 70, 86, 94, 100]
-                      : [35, 52, 42, 68, 55, 78, 92, 64, 82, 70, 88, 100]
-                  ).map(
-                    (height, index) => (
+                  const startOfDay = (date: Date) =>
+                    new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-                      <div
-                        key={index}
-                        className="group flex flex-1 flex-col justify-end"
-                      >
+                  const salesByPeriod = (() => {
+                    if (salesPeriod === "year") {
+                      const year = now.getFullYear();
+                      const values = Array.from({ length: 12 }, (_, month) => {
+                        const total = dashboardData.sales
+                          .filter((sale) => {
+                            const date = new Date(sale.sale_date);
+                            return (
+                              date.getFullYear() === year &&
+                              date.getMonth() === month
+                            );
+                          })
+                          .reduce(
+                            (sum, sale) => sum + Number(sale.total_amount || 0),
+                            0
+                          );
 
-                        <div
-                          style={{
-                            height: `${height}%`,
-                          }}
-                          className="rounded-t-lg bg-gradient-to-t from-violet-600/80 to-blue-400/80 opacity-80 transition-all duration-300 group-hover:opacity-100 group-hover:shadow-lg group-hover:shadow-violet-500/20"
-                        />
+                        return {
+                          label: new Date(year, month, 1).toLocaleString("en-US", {
+                            month: "short",
+                          }),
+                          value: total,
+                        };
+                      });
 
+                      return values;
+                    }
+
+                    if (salesPeriod === "week") {
+                      const today = startOfDay(now);
+                      const dayOfWeek = today.getDay();
+                      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                      const monday = new Date(today);
+                      monday.setDate(today.getDate() + mondayOffset);
+
+                      return Array.from({ length: 7 }, (_, index) => {
+                        const date = new Date(monday);
+                        date.setDate(monday.getDate() + index);
+
+                        const total = dashboardData.sales
+                          .filter((sale) => {
+                            const saleDate = startOfDay(new Date(sale.sale_date));
+                            return saleDate.getTime() === date.getTime();
+                          })
+                          .reduce(
+                            (sum, sale) => sum + Number(sale.total_amount || 0),
+                            0
+                          );
+
+                        return {
+                          label: date.toLocaleString("en-US", {
+                            weekday: "short",
+                          }),
+                          value: total,
+                        };
+                      });
+                    }
+
+                    const year = now.getFullYear();
+                    const month = now.getMonth();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                    return Array.from({ length: daysInMonth }, (_, index) => {
+                      const date = new Date(year, month, index + 1);
+
+                      const total = dashboardData.sales
+                        .filter((sale) => {
+                          const saleDate = startOfDay(new Date(sale.sale_date));
+                          return saleDate.getTime() === date.getTime();
+                        })
+                        .reduce(
+                          (sum, sale) => sum + Number(sale.total_amount || 0),
+                          0
+                        );
+
+                      return {
+                        label: String(index + 1),
+                        value: total,
+                      };
+                    });
+                  })();
+
+                  const maxValue = Math.max(
+                    ...salesByPeriod.map((item) => item.value),
+                    0
+                  );
+
+                  const chartItems = salesByPeriod.map((item) => ({
+                    ...item,
+                    height:
+                      maxValue > 0
+                        ? Math.max((item.value / maxValue) * 100, item.value > 0 ? 4 : 1)
+                        : 1,
+                  }));
+
+                  return (
+                    <>
+                      <div className="mt-8 flex h-56 items-end gap-1.5 overflow-hidden">
+                        {chartItems.map((item, index) => (
+                          <div
+                            key={`${item.label}-${index}`}
+                            className="group flex min-w-0 flex-1 flex-col justify-end"
+                            title={`${item.label}: ${formatCurrency(
+                              item.value,
+                              appSettings.currency
+                            )}`}
+                          >
+                            <div
+                              style={{ height: `${item.height}%` }}
+                              className="rounded-t-lg bg-gradient-to-t from-violet-600/80 to-blue-400/80 opacity-80 transition-all duration-300 group-hover:opacity-100 group-hover:shadow-lg group-hover:shadow-violet-500/20"
+                            />
+                          </div>
+                        ))}
                       </div>
 
-                    )
-                  )}
-
-                </div>
-
-
-                <div className="mt-3 flex justify-between text-xs text-slate-500">
-
-                  {(salesPeriod === "week"
-                    ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-                    : salesPeriod === "year"
-                      ? ["2021", "2022", "2023", "2024", "2025", "2026"]
-                      : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-                  ).map((label) => <span key={label}>{label}</span>)}
-
-                </div>
+                      <div className="mt-3 flex justify-between gap-1 text-xs text-slate-500">
+                        {chartItems.map((item, index) => (
+                          <span
+                            key={`${item.label}-label-${index}`}
+                            className="min-w-0 flex-1 text-center"
+                          >
+                            {item.label}
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
 
               </div>
 
@@ -794,25 +970,47 @@ function App() {
 
 
                 <div className="mt-7 space-y-6">
+                  {(() => {
+                    const categoryTotals = dashboardData.products.reduce<Record<string, number>>(
+                      (totals, product) => {
+                        const category = product.category?.trim() || "Other";
+                        totals[category] = (totals[category] || 0) + Number(product.quantity || 0);
+                        return totals;
+                      },
+                      {}
+                    );
 
-                  <InventoryRow
-                    label="Electronics"
-                    value="38"
-                    percentage="76%"
-                  />
+                    const inventoryCategories = Object.entries(categoryTotals)
+                      .sort(([, a], [, b]) => b - a);
 
-                  <InventoryRow
-                    label="Accessories"
-                    value="0"
-                    percentage="0%"
-                  />
+                    const totalCategoryStock = inventoryCategories.reduce(
+                      (sum, [, value]) => sum + value,
+                      0
+                    );
 
-                  <InventoryRow
-                    label="Other"
-                    value="0"
-                    percentage="0%"
-                  />
+                    const visibleCategories = inventoryCategories.slice(0, 3);
 
+                    if (visibleCategories.length === 0) {
+                      return (
+                        <div className="rounded-xl border border-white/5 bg-white/[0.025] p-4 text-sm text-slate-500">
+                          No inventory data available.
+                        </div>
+                      );
+                    }
+
+                    return visibleCategories.map(([category, value]) => (
+                      <InventoryRow
+                        key={category}
+                        label={category}
+                        value={String(value)}
+                        percentage={
+                          totalCategoryStock > 0
+                            ? `${Math.round((value / totalCategoryStock) * 100)}%`
+                            : "0%"
+                        }
+                      />
+                    ));
+                  })()}
                 </div>
 
               </div>
@@ -856,14 +1054,36 @@ function App() {
 
 
                 <div className="mt-5 space-y-4">
+                  {(() => {
+                    const recentSales = [...dashboardData.sales]
+                      .sort(
+                        (a, b) =>
+                          new Date(b.sale_date).getTime() -
+                          new Date(a.sale_date).getTime()
+                      )
+                      .slice(0, 3);
 
-                  <Transaction
-                    name="Laptop Mouse"
-                    customer="Kunal"
-                    amount={`${formatCurrency(1598, appSettings.currency)}`}
-                    positive
-                  />
+                    if (recentSales.length === 0) {
+                      return (
+                        <div className="rounded-xl border border-white/5 bg-white/[0.025] p-4 text-sm text-slate-500">
+                          No sales recorded yet.
+                        </div>
+                      );
+                    }
 
+                    return recentSales.map((sale) => (
+                      <Transaction
+                        key={sale.sale_id}
+                        name={`Sale #${sale.sale_id}`}
+                        customer={sale.customer_name || "Walk-in customer"}
+                        amount={formatCurrency(
+                          Number(sale.total_amount || 0),
+                          appSettings.currency
+                        )}
+                        positive
+                      />
+                    ));
+                  })()}
                 </div>
 
               </div>
@@ -897,31 +1117,85 @@ function App() {
                 </div>
 
 
-                <div className="mt-5 rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-4">
+                <div className="mt-5 space-y-3">
+                  {(() => {
+                    const alertProducts = [...dashboardData.products]
+                      .filter(
+                        (product) =>
+                          Number(product.quantity || 0) === 0 ||
+                          Number(product.quantity || 0) <=
+                            Number(product.reorder_level || appSettings.lowStockThreshold)
+                      )
+                      .sort((a, b) => {
+                        const aOut = Number(a.quantity || 0) === 0 ? 0 : 1;
+                        const bOut = Number(b.quantity || 0) === 0 ? 0 : 1;
+                        return aOut - bOut || Number(a.quantity || 0) - Number(b.quantity || 0);
+                      })
+                      .slice(0, 4);
 
-                  <div className="flex items-center gap-3">
+                    if (alertProducts.length === 0) {
+                      return (
+                        <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
+                              <Boxes size={18} />
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                All stock levels healthy
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                No products below reorder level
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
 
-                    <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
+                    return alertProducts.map((product) => {
+                      const quantity = Number(product.quantity || 0);
+                      const isOutOfStock = quantity === 0;
 
-                      <Boxes size={18} />
-
-                    </div>
-
-
-                    <div>
-
-                      <p className="font-medium">
-                        All stock levels healthy
-                      </p>
-
-                      <p className="text-xs text-slate-400">
-                        No products below reorder level
-                      </p>
-
-                    </div>
-
-                  </div>
-
+                      return (
+                        <button
+                          key={product.product_id}
+                          onClick={() => {
+                            setActivePage("products");
+                            setGlobalSearch(product.name);
+                            setNotificationOpen(false);
+                          }}
+                          className={`w-full rounded-xl border p-3 text-left transition hover:bg-white/[0.04] ${
+                            isOutOfStock
+                              ? "border-red-500/10 bg-red-500/5"
+                              : "border-orange-500/10 bg-orange-500/5"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {product.name}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-400">
+                                {isOutOfStock
+                                  ? "Out of stock"
+                                  : `${quantity} units remaining • Reorder at ${product.reorder_level} units`}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-lg px-2 py-1 text-xs font-semibold ${
+                                isOutOfStock
+                                  ? "bg-red-500/10 text-red-300"
+                                  : "bg-orange-500/10 text-orange-300"
+                              }`}
+                            >
+                              {isOutOfStock ? "OUT" : "LOW"}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
 
               </div>
@@ -1141,7 +1415,7 @@ function Transaction({
             : "text-sm"
         }
       >
-        +{amount}
+        {positive ? `+${amount}` : `-${amount}`}
       </p>
 
     </div>
