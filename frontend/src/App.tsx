@@ -89,6 +89,8 @@ function App() {
 
 
   useEffect(() => {
+    if (activePage !== "dashboard") return;
+
     const loadDashboard = async () => {
       try {
         setDashboardLoading(true);
@@ -105,7 +107,7 @@ function App() {
     };
 
     loadDashboard();
-  }, []);
+  }, [activePage]);
 
 
   useEffect(() => {
