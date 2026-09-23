@@ -22,6 +22,12 @@
   <strong>Products • Suppliers • Purchases • Sales • Reports • Dashboard • Authentication</strong>
 </p>
 
+<p>
+    <a href="https://resourceful-radiance-production-0f74.up.railway.app">
+        <img src="https://img.shields.io/badge/🚀_Live_Demo-Open_Application-8B5CF6?style=for-the-badge" alt="Live Demo">
+    </a>
+</p>
+
 </div>
 
 ---
