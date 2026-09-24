@@ -58,7 +58,7 @@ type SalesProps = {
   appSettings: AppSettings;
 };
 
-const API_BASE = "https://inventory-sales-management-system-production-a7df.up.railway.app";
+const API_BASE = "";
 
 function Sales({ globalSearch = "", appSettings }: SalesProps) {
   const [sales, setSales] = useState<Sale[]>([]);

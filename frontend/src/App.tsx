@@ -186,7 +186,7 @@ function App() {
       }
 
       try {
-        const response = await fetch("https://inventory-sales-management-system-production-a7df.up.railway.app/api/products");
+        const response = await fetch("/api/products");
         const data = await response.json();
         const products = data.products || [];
         const count = products.filter(

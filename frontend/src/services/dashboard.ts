@@ -1,5 +1,4 @@
-const API_BASE =
-  "https://inventory-sales-management-system-production-a7df.up.railway.app";
+const API_BASE = "";
 
 export type DashboardProduct = {
   product_id: number;
