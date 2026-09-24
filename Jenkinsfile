@@ -11,6 +11,16 @@ pipeline {
             }
         }
 
+        stage('Copy Environment File') {
+            steps {
+                echo 'Copying .env file...'
+                sh '''
+                    cp /home/ubuntu/Inventory-Sales-Management-System/.env .env
+                    chmod 600 .env
+                '''
+            }
+        }
+
         stage('Build Docker Images') {
             steps {
                 echo 'Building Docker images...'
@@ -41,7 +51,6 @@ pipeline {
     }
 
     post {
-
         success {
             echo 'Deployment completed successfully!'
         }
